@@ -34,11 +34,13 @@ const products = [
   },
 ];
 
-//empty cart
+//empty cart - now stores objects with quantity
 const cart = [];
 
 //used to reset the timer(user feedback)
 let timerId;
+
+const MAX_QUANTITY = 10;
 
 clearCartBtn.addEventListener("click", clearCart);
 
@@ -52,26 +54,15 @@ function clearCart() {
 
 function sortByPrice() {
   cart.sort(function (item1, item2) {
-    return item1.price - item2.price;
+    const total1 = item1.price * item1.quantity;
+    const total2 = item2.price * item2.quantity;
+    return total1 - total2;
   });
   renderCartDetails();
 }
 
 function renderProductDetails() {
   products.forEach(function (product) {
-    // <div class="product-row">
-    //       <p>Laptop - Rs. 50000</p>
-    //       <button>Add to cart</button>
-    //     </div>
-
-    //   const productRow = `
-    //     <div class="product-row">
-    //         <p>${product.name} - Rs. ${product.price}</p>
-    //         <button>Add to cart</button>
-    //     </div>
-    //   `;
-    //   productsContainer.insertAdjacentHTML("beforeend", productRow);
-
     const { id, name, price } = product;
     const divElement = document.createElement("div");
     divElement.className = "product-row";
@@ -85,12 +76,14 @@ function renderProductDetails() {
 
 function renderCartDetails() {
   cartContainer.innerHTML = "";
-  cart.forEach(function (product) {
-    const { id, name, price } = product;
+  cart.forEach(function (cartItem) {
+    const { id, name, price, quantity } = cartItem;
 
     const cartItemRow = `
       <div class="product-row">
-              <p>${name} - Rs. ${price}</p>
+              <p>${name} - Rs. ${price} x ${quantity} = Rs. ${
+      price * quantity
+    }</p>
               <button onclick="removeFromCart(${id})">Remove</button>
             </div>
       `;
@@ -98,14 +91,8 @@ function renderCartDetails() {
     cartContainer.insertAdjacentHTML("beforeend", cartItemRow);
   });
 
-  //   let totalPrice = 0;
-  console.log("cart", cart);
-  //   for (let i = 0; i < cart.length; i++) {
-  //     totalPrice = totalPrice + cart[i].price;
-  //   }
-
-  const totalPrice = cart.reduce(function (acc, curProduct) {
-    return acc + curProduct.price;
+  const totalPrice = cart.reduce(function (acc, cartItem) {
+    return acc + cartItem.price * cartItem.quantity;
   }, 0);
 
   document.getElementById("totalPrice").textContent = `Rs. ${totalPrice}`;
@@ -113,38 +100,59 @@ function renderCartDetails() {
 
 //add to cart
 function addToCart(id) {
-  //   console.log("add to cart clicked", id);
+  //check if the product is already available in the cart
+  const existingCartItem = cart.find((item) => item.id === id);
 
-  //check if the product is alredy available in the cart.
-  const isProductAvailable = cart.some((product) => product.id === id);
-  if (isProductAvailable) {
-    updateUserFeedback(`Item already added to the cart`, "error");
-    return;
+  if (existingCartItem) {
+    // Product exists, check if we can add more
+    if (existingCartItem.quantity >= MAX_QUANTITY) {
+      updateUserFeedback(
+        `Out of stock! Maximum ${MAX_QUANTITY} items allowed`,
+        "error"
+      );
+      return;
+    }
+
+    // Increase quantity
+    existingCartItem.quantity++;
+    updateUserFeedback(
+      `${existingCartItem.name} quantity increased to ${existingCartItem.quantity}`,
+      "success"
+    );
+  } else {
+    // Product doesn't exist, add new item with quantity 1
+    const productToAdd = products.find(function (product) {
+      return product.id === id;
+    });
+
+    cart.push({
+      ...productToAdd,
+      quantity: 1,
+    });
+
+    updateUserFeedback(`${productToAdd.name} is added to the cart`, "success");
   }
 
-  const productToAdd = products.find(function (product) {
-    return product.id === id;
-  });
-  //   console.log(productToAdd);
-  cart.push(productToAdd);
-  console.log(cart);
   renderCartDetails();
-
-  //   feedbackElement.textContent = `${name} is added to the cart`;
-  updateUserFeedback(`${productToAdd.name} is added to the cart`, "success");
 }
 
 function removeFromCart(id) {
-  console.log(id);
-  const product = cart.find((product) => product.id === id);
-  //   const updatedCart = cart.filter(function (product) {
-  //     return product.id !== id;
-  //   });
-  const productIndex = cart.findIndex((product) => product.id === id);
-  cart.splice(productIndex, 1);
-  //   console.log(updatedCart);
-  //   cart = updatedCart;
-  updateUserFeedback(`${product.name} is removed from the cart`, "error");
+  const cartItem = cart.find((item) => item.id === id);
+
+  if (cartItem.quantity > 1) {
+    // Decrease quantity
+    cartItem.quantity--;
+    updateUserFeedback(
+      `${cartItem.name} quantity decreased to ${cartItem.quantity}`,
+      "success"
+    );
+  } else {
+    // Remove item completely
+    const productIndex = cart.findIndex((item) => item.id === id);
+    cart.splice(productIndex, 1);
+    updateUserFeedback(`${cartItem.name} is removed from the cart`, "error");
+  }
+
   renderCartDetails();
 }
 
